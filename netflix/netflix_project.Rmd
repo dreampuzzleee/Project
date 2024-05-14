@@ -1,0 +1,117 @@
+---
+title: "Netfilx Analysis"
+author: "Yujia Dai"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+library(ggplot2)
+```
+
+## Description
+The [dataset](https://www.kaggle.com/datasets/shivamb/netflix-shows) contains movies and TV shows that released on the Netfilx. The dataset has 12 columns and 8807 rows. 
+
+## Reading data
+
+```{r read dataset}
+#setwd("/Users/daidai/Desktop/ds_project/netflix")
+df <- read.csv("netflix_titles.csv")
+head(df, n = 5)
+
+# check dataset size and structure
+dim(df)
+str(df)
+```
+
+The dataset contains 8807 rows and 12 columns. The table shows there are some values is missing. From $str(df)$, we notice that the empty values is shown as "" rather than na, so $is.na()$ doesn't work. 
+
+## Data cleaning
+
+```{r data read}
+# colMeans() function in R calculates the mean for each column of a matrix or a dataframe
+colMeans(df == "") * 100
+sum(duplicated(df))
+```
+
+
+```{r eda1}
+# get first 10 rows with empty values in director
+missing_rows <- df[df$director == "", ]
+print(head(missing_rows), 10)
+```
+
+```{r eda2}
+# fill empty values in 'director', 'cast' and 'country' features with 'unknown'
+df$director <- ifelse(df$director == "", "Unknown", df$director)
+print(head(df$director), 10)
+
+df$cast <- ifelse(df$cast == "", "Unknown", df$cast)
+print(head(df$cast), 10)
+
+df$country <- ifelse(df$country == "", "Unknown", df$country)
+print(head(df$country), 10)
+```
+
+```{r}
+# drop empty value in columns
+df <- df[apply(df, 1, function(row) !any(row == "")), ]
+colMeans(df == "") * 100
+sum(duplicated(df))
+```
+
+### Split Added Date
+```{r}
+# split added date and added year in 'date_added'
+date <- strsplit(df$date_added, ", ")
+added_date <- sapply(date, function(x) x[1])
+added_year <- sapply(date, function(x) x[2])
+df$added_month <- added_date
+df$added_year <- added_year
+
+# remove 'date_added' column
+df <- df[, !(names(df) %in% c("date_added"))]
+```
+
+```{r}
+# drop rows that 'added_year' is less than 'release_year'
+df <- df[!(df$added_year < df$release_year), ]
+dim(df)
+```
+
+## Analysis features
+```{r}
+type_counts <- table(df$type)
+type_counts
+ggplot(df, aes(x = type, fill = type)) +
+  geom_bar(width = 0.5) +
+  labs(x = "Type", y = "Count") +
+  theme_minimal()
+```
+
+```{r}
+movie_percentage <- round((type_counts["Movie"] / sum(type_counts)) * 100, 2)
+tv_show_percentage <- round((type_counts["TV Show"] / sum(type_counts)) * 100, 2)
+
+sprintf("On Netflix, %.2f%% are Movie and %.2f%% are TV show", movie_percentage, tv_show_percentage)
+```
+
+```{r}
+director_counts <- sort(table(df$director), decreasing = TRUE)
+director_counts[1:10]
+```
+
+```{r}
+country_counts <- sort(table(df$country), decreasing = TRUE)
+top_countries <- as.data.frame(country_counts[1:5])
+
+ggplot(top_countries, aes(x = Var1, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Country", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
